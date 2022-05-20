@@ -1,3 +1,4 @@
+#!/bin/bash
 zvpn(){
 OPTIONS=("exit" "start" "status" "restart" "stop" "stats" "config-import" "config-list" "config-delete" "help")
 
@@ -18,21 +19,15 @@ select opt in "${OPTIONS[@]}"
       break
       ;;
     "start")
-      zvalidate_execute
-      vpn=$(value_if_null "$1"  zvpn_select)
-      openvpn3 session-start --config "$vpn"
+      zvalidate_execute "openvpn3 session-start --config "$(value_if_null "$1"  zvpn_select)""
       break
       ;;
     "stop")
-      zvalidate_execute
-      vpn=$(value_if_null "$1"  zvpn_select)
-      openvpn3 session-manage --config "$vpn" --disconnect
+      zvalidate_execute "openvpn3 session-manage --config "$(value_if_null "$1"  zvpn_select)" --disconnect"
       break
       ;;
     "restart")
-      zvalidate_execute
-      vpn=$(value_if_null "$1"  zvpn_select)
-      openvpn3 session-manage --config "$vpn" --restart
+      zvalidate_execute "openvpn3 session-manage --config $(value_if_null "$1"  zvpn_select) --restart"
       break
       ;;
     "status")
@@ -40,9 +35,7 @@ select opt in "${OPTIONS[@]}"
       break
       ;;
     "stats")
-      zvalidate_execute
-      vpn=$(value_if_null "$1"  zvpn_select)
-      openvpn3 session-stats --config "$vpn"
+      zvalidate_execute "openvpn3 session-stats --config "$(value_if_null "$1"  zvpn_select)""
       break
       ;;
     "config-import")
@@ -56,9 +49,7 @@ select opt in "${OPTIONS[@]}"
       break
       ;;
     "config-delete")
-      zvalidate_execute
-      vpn=$(value_if_null "$1"  zvpn_select)
-      openvpn3 config-remove --config "$vpn"
+      zvalidate_execute "openvpn3 config-remove --config "$(value_if_null "$1"  zvpn_select)""
       break
       ;;
     *)
@@ -99,7 +90,8 @@ zvalidate_execute(){
     echo ""
     echo "ERROR: No vpn configuration found"
     echo "  => Import ovpn file using zvpn config-import command"
-    break;
+  else
+    eval "$1"
   fi
 }
 
@@ -114,28 +106,26 @@ zvpn_import(){
 }
 
 zvpn_select(){
-  BUCKETS=()
+  internal_array=()
   while IFS= read -r entry; do
-      BUCKETS+=("$entry")
+      internal_array+=("$entry")
   done <<<"$(openvpn3 configs-list | awk '{print $1}'  | tr -d '-'| grep -o '\S\+' | awk 'NR % 3 == 0 && NR > 3')"
 
-  if [[ "${#BUCKETS[@]}" == "1" ]]; then
-    echo "${BUCKETS[1]}"
-    break
+  if [[ "${#internal_array[@]}" == "1" ]]; then
+    echo ${internal_array[@]:0:1}
+  else
+    PS3="Select VPN profile (number): "
+      select opt in "${internal_array[@]}"
+        do
+          case $opt in
+          "Exit")
+            break
+            ;;
+          *)
+            echo $opt
+            break
+            ;;
+        esac
+      done
   fi
-
-  PS3="Select VPN profile (number): "
-  select opt in "${BUCKETS[@]}"
-    do
-      case $opt in
-      "Exit")
-        break
-        ;;
-      *)
-        echo $opt
-        break
-        ;;
-    esac
-  done
-
 }
